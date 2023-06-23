@@ -10,7 +10,7 @@ import re
 import datetime
 import os
 import asyncio
-from bases import commandparser
+from . import commandparser
 import enum
 from enum import Enum
 import zoneinfo

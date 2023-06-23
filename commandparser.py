@@ -9,7 +9,7 @@ from lark import Transformer
 import discord
 from functools import reduce
 
-from bases import base
+from . import base
 
 
 class CommandParserError(Exception):
@@ -119,7 +119,7 @@ class CommandParser:
     def __init__(self) -> None:
         self.arguments: dict[str: CommandParser.Arg] = {}
         self.argument_names: list[str] = []
-        with open("src/bases/commandparser.lark", encoding="utf-8") as grammar:
+        with open("UtilityClasses_DiscordBot/commandparser.lark", encoding="utf-8") as grammar:
             self.parser = Lark(grammar.read())
 
         self.tree: Union[lark.Tree, None] = None
@@ -238,8 +238,8 @@ class CommandParser:
         self.analyze_arguments()
         return self.namespace
 
-    def get_help(self) -> base.Window:
+    def get_help(self):
         pass
 
-    def get_help_arg(self, arg: str) -> base.Window:
+    def get_help_arg(self, arg: str):
         pass

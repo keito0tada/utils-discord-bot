@@ -1,15 +1,16 @@
-import sys
-import typing
-from typing import Union
+import os.path
 import re
+import typing
 from dataclasses import dataclass
+from functools import reduce
+from typing import Union, Final
+
+import discord
 import lark.exceptions
 from lark import Lark
 from lark import Transformer
-import discord
-from functools import reduce
 
-from . import base
+DIRECTORY_NAME: Final[str] = os.path.dirname(__file__)
 
 
 class CommandParserError(Exception):
@@ -119,7 +120,7 @@ class CommandParser:
     def __init__(self) -> None:
         self.arguments: dict[str: CommandParser.Arg] = {}
         self.argument_names: list[str] = []
-        with open("UtilityClasses_DiscordBot/commandparser.lark", encoding="utf-8") as grammar:
+        with open(os.path.join(DIRECTORY_NAME, 'commandparser.lark'), encoding="utf-8") as grammar:
             self.parser = Lark(grammar.read())
 
         self.tree: Union[lark.Tree, None] = None

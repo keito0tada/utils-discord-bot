@@ -429,12 +429,12 @@ class Windows(IWindow):
             raise TypeError
 
 
-class Runner(commands.Cog):
+class Runner:
     def __init__(self, channel: discord.TextChannel, timeout: float = 3.0):
         self.channel = channel
         self.timeout = timeout
 
-    async def run(self):
+    async def run(self, interaction: discord.Interaction):
         pass
 
     async def destroy(self):

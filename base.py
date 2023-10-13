@@ -1,10 +1,9 @@
 import abc
 import enum
 import zoneinfo
-from typing import Optional, List, Union, NamedTuple
+from typing import Optional, List, Union, NamedTuple, Sequence, Callable, Any
 
 import discord
-import psycopg2
 from discord.ext import commands, tasks
 
 from . import commandparser
@@ -28,512 +27,234 @@ class Popups:
         await interaction.response.send_modal(self.modal)
 
 
-class IWindow(metaclass=abc.ABCMeta):
+class IWindow2(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def destroy(self):
+    async def send(self, sender: discord.abc.Messageable) -> discord.Message:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def check_index(self, index: enum.IntEnum):
+    async def reply(self, message: discord.Message) -> discord.Message:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_embed_dict(self, index: enum.IntEnum) -> Optional[dict]:
+    async def response_send(self, interaction: discord.Interaction) -> discord.Message:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_embeds_dicts(self, index: enum.IntEnum) -> Optional[list]:
+    async def edit(self, message: discord.Message) -> discord.Message:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_view_items(self, index: enum.IntEnum) -> Optional[dict]:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def send(
-        self, sender: discord.abc.Messageable, index: enum.IntEnum
-    ) -> "IWindow":
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def reply(self, message: discord.Message, index: enum.IntEnum) -> "IWindow":
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def response_send(
-        self, interaction: discord.Interaction, index: enum.IntEnum
-    ) -> "IWindow":
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def edit(self, message: discord.Message, index: enum.IntEnum) -> "IWindow":
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def response_edit(
-        self, interaction: discord.Interaction, index: enum.IntEnum
-    ) -> "IWindow":
+    async def response_edit(self, interaction: discord.Interaction) -> discord.Message:
         raise NotImplementedError
 
 
-class Window(IWindow):
+class Window(IWindow2):
     def __init__(
         self,
-        content: Optional[str] = None,
-        embed_dict: Optional[dict] = None,
-        embeds_dicts: Optional[dict] = None,
-        view_items: Optional[list[discord.ui.Item]] = None,
-        emojis: Optional[list[str]] = None,
-    ):
-        self.message: Optional[discord.Message] = None
+        content: str = None,
+        tts: bool = False,
+        embed: discord.Embed = None,
+        embeds: list[discord.Embed] = None,
+        file: discord.File = None,
+        files: list[discord.File] = None,
+        stickers: Sequence[Union[discord.GuildSticker, discord.StickerItem]] = None,
+        delete_after: float = None,
+        nonce: int = None,
+        allowed_mentions: discord.AllowedMentions = None,
+        reference: Union[
+            discord.Message, discord.MessageReference, discord.PartialMessage
+        ] = None,
+        mention_author: bool = None,
+        view: discord.ui.View = None,
+        suppress_embeds: bool = False,
+        silent: bool = False,
+        ephemeral: bool = False,
+        emojis: list[
+            Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str]
+        ] = None,
+    ) -> None:
         self.content = content
-        self.embed_dict = embed_dict
-        self._embed: Optional[discord.Embed] = None
-        self.embeds_dicts = embeds_dicts
-        self._embeds: Optional[list[discord.Embed]] = None
-        self.view_items = view_items
-        self._view: Optional[discord.ui.View()] = None
+        self.tts = tts
+        self.embed = embed
+        self.embeds = embeds
+        self.file = file
+        self.files = files
+        self.stickers = stickers
+        self.delete_after = delete_after
+        self.nonce = nonce
+        self.allowed_mentions = allowed_mentions
+        self.reference = reference
+        self.mention_author = mention_author
+        self.view = view
+        self.suppress_embeds = suppress_embeds
+        self.silent = silent
         self.emojis = emojis
+        self.ephemeral = ephemeral
+        self.args_messageable_send = {
+            "tts": tts,
+            "suppress_embeds": suppress_embeds,
+            "silent": silent,
+        }
+        self.args_messageable_edit = {
+            "suppress": suppress_embeds,
+        }
+        self.args_interaction_send = {
+            "tts": tts,
+            "ephemeral": ephemeral,
+            "suppress_embeds": suppress_embeds,
+            "silent": silent,
+        }
+        self.args_interaction_edit = {}
+        if content is not None:
+            self.args_messageable_send["content"] = content
+            self.args_messageable_edit["content"] = content
+            self.args_interaction_send["content"] = content
+            self.args_interaction_edit["content"] = content
+        if embed is not None:
+            self.args_messageable_send["embed"] = embed
+            self.args_messageable_edit["embed"] = embed
+            self.args_interaction_send["embed"] = embed
+            self.args_interaction_edit["embed"] = embed
+        if embeds is not None:
+            self.args_messageable_send["embeds"] = embeds
+            self.args_messageable_edit["embeds"] = embeds
+            self.args_interaction_send["embeds"] = embeds
+            self.args_interaction_edit["embeds"] = embeds
+        if file is not None:
+            self.args_messageable_send["file"] = file
+            self.args_messageable_edit["attachments"] = [file]
+            self.args_interaction_send["file"] = file
+            self.args_interaction_edit["attachments"] = [file]
+        if files is not None:
+            self.args_messageable_send["files"] = files
+            self.args_messageable_edit["attachments"] = files
+            self.args_interaction_send["files"] = files
+            self.args_interaction_edit["attachments"] = files
+        if stickers is not None:
+            self.args_messageable_send["stickers"] = stickers
+        if delete_after is not None:
+            self.args_messageable_send["delete_after"] = delete_after
+            self.args_messageable_edit["delete_after"] = delete_after
+            self.args_interaction_send["delete_after"]
+            self.args_interaction_edit["delete_after"] = delete_after
+        if nonce is not None:
+            self.args_messageable_send["nonce"] = nonce
+        if allowed_mentions is not None:
+            self.args_messageable_send["allowed_mentions"] = allowed_mentions
+            self.args_messageable_edit["allowed_mentions"] = allowed_mentions
+            self.args_interaction_send["allowed_mentions"] = allowed_mentions
+            self.args_interaction_edit["allowed_mentions"] = allowed_mentions
+        if reference is not None:
+            self.args_messageable_send["reference"] = reference
+        if mention_author is not None:
+            self.args_messageable_send["mention_author"] = mention_author
+        if view is not None:
+            self.args_messageable_send["view"] = view
+            self.args_messageable_edit["view"] = view
+            self.args_interaction_send["view"] = view
+            self.args_interaction_edit["view"] = view
 
-    def is_sent(self) -> bool:
-        return self.message is not None
+    def copy(
+        self,
+        content: str = None,
+        tts: bool = False,
+        embed: discord.Embed = None,
+        embeds: list[discord.Embed] = None,
+        file: discord.File = None,
+        files: list[discord.File] = None,
+        stickers: Sequence[Union[discord.GuildSticker, discord.StickerItem]] = None,
+        delete_after: float = None,
+        nonce: int = None,
+        allowed_mentions: discord.AllowedMentions = None,
+        reference: Union[
+            discord.Message, discord.MessageReference, discord.PartialMessage
+        ] = None,
+        mention_author: bool = None,
+        view: discord.ui.View = None,
+        suppress_embeds: bool = False,
+        silent: bool = False,
+        ephemeral: bool = False,
+        emojis: list[
+            Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str]
+        ] = None,
+    ) -> "Window":
+        return Window(
+            content=content,
+            tts=tts,
+            embed=embed,
+            embeds=embeds,
+            file=file,
+            files=files,
+            stickers=stickers,
+            delete_after=delete_after,
+            nonce=nonce,
+            allowed_mentions=allowed_mentions,
+            reference=reference,
+            mention_author=mention_author,
+            view=view,
+            suppress_embeds=suppress_embeds,
+            silent=silent,
+            ephemeral=ephemeral,
+            emojis=emojis,
+        )
 
-    def check_index(self, index: enum.IntEnum):
-        if index != 0:
-            raise IndexError
-
-    def destroy(self):
-        self._view().stop()
-
-    def get_embed_dict(self, index: enum.IntEnum):
-        self.check_index(index=index)
-        return self.embed_dict
-
-    def get_embeds_dicts(self, index: enum.IntEnum):
-        self.check_index(index=index)
-        return self.embeds_dicts
-
-    def get_view_items(self, index: enum.IntEnum):
-        self.check_index(index=index)
-        return self.view_items
-
-    def _prepare_message(self):
-        if self.embed_dict is None:
-            self._embed = None
-        else:
-            self._embed = discord.Embed.from_dict(self.embed_dict)
-        if self.embeds_dicts is None:
-            self._embeds = None
-        else:
-            self._embeds = [
-                discord.Embed.from_dict(embed) for embed in self.embeds_dicts
-            ]
-        if self.view_items is None:
-            self._view = None
-        else:
-            self._view = discord.ui.View()
-            for item in self.view_items:
-                self._view.add_item(item=item)
-
-    async def send(
-        self, sender: discord.abc.Messageable, index: enum.IntEnum
-    ) -> "IWindow":
-        if self.is_sent():
-            raise DuplicatedSendError
-        self._prepare_message()
-        if self.content is None:
-            if self._embed is None:
-                if self._embeds is None:
-                    raise ValueError
-                else:
-                    if self._view is None:
-                        self.message = await sender.send(embeds=self._embeds)
-                    else:
-                        self.message = await sender.send(
-                            embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await sender.send(embed=self._embed)
-                    else:
-                        self.message = await sender.send(
-                            embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
-        else:
-            if self._embed is None:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await sender.send(content=self.content)
-                    else:
-                        self.message = await sender.send(
-                            content=self.content, view=self._view
-                        )
-                else:
-                    if self._view is None:
-                        self.message = await sender.send(
-                            content=self.content, embeds=self._embeds
-                        )
-                    else:
-                        self.message = await sender.send(
-                            content=self.content, embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await sender.send(
-                            content=self.content, embed=self._embed
-                        )
-                    else:
-                        self.message = await sender.send(
-                            content=self.content, embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
+    async def send(self, sender: discord.abc.Messageable) -> discord.Message:
+        message: discord.Message = await sender.send(**self.args_messageable_send)
         if self.emojis is not None:
             for emoji in self.emojis:
-                await self.message.add_reaction(emoji)
-        return self
+                await message.add_reaction(emoji=emoji)
+        return message
 
-    async def reply(self, message: discord.Message, index: enum.IntEnum) -> "IWindow":
-        if self.is_sent():
-            raise DuplicatedSendError
-        self._prepare_message()
-        if self.content is None:
-            if self._embed is None:
-                if self._embeds is None:
-                    raise ValueError
-                else:
-                    if self._view is None:
-                        self.message = await message.reply(embeds=self._embeds)
-                    else:
-                        self.message = await message.reply(
-                            embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await message.reply(embed=self._embed)
-                    else:
-                        self.message = await message.reply(
-                            embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
-        else:
-            if self._embed is None:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await message.reply(content=self.content)
-                    else:
-                        self.message = await message.reply(
-                            content=self.content, view=self._view
-                        )
-                else:
-                    if self._view is None:
-                        self.message = await message.reply(
-                            content=self.content, embeds=self._embeds
-                        )
-                    else:
-                        self.message = await message.reply(
-                            content=self.content, embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await message.reply(
-                            content=self.content, embed=self._embed
-                        )
-                    else:
-                        self.message = await message.reply(
-                            content=self.content, embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
+    async def reply(self, message: discord.Message) -> discord.Message:
+        message: discord.Message = await message.reply(**self.args_messageable_send)
         if self.emojis is not None:
             for emoji in self.emojis:
-                await self.message.add_reaction(emoji)
-        return self
+                await message.add_reaction(emoji=emoji)
+        return message
 
-    async def response_send(
-        self, interaction: discord.Interaction, index: enum.IntEnum
-    ) -> "IWindow":
-        if self.is_sent():
-            raise DuplicatedSendError
-        self._prepare_message()
-        if self.content is None:
-            if self._embed is None:
-                if self._embeds is None:
-                    raise ValueError
-                else:
-                    if self._view is None:
-                        self.message = await interaction.response.send_message(
-                            embeds=self._embeds
-                        )
-                    else:
-                        self.message = await interaction.response.send_message(
-                            embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await interaction.response.send_message(
-                            embed=self._embed
-                        )
-                    else:
-                        self.message = await interaction.response.send_message(
-                            embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
-        else:
-            if self._embed is None:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await interaction.response.send_message(
-                            content=self.content
-                        )
-                    else:
-                        self.message = await interaction.response.send_message(
-                            content=self.content, view=self._view
-                        )
-                else:
-                    if self._view is None:
-                        self.message = await interaction.response.send_message(
-                            content=self.content, embeds=self._embeds
-                        )
-                    else:
-                        self.message = await interaction.response.send_message(
-                            content=self.content, embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await interaction.response.send_message(
-                            content=self.content, embed=self._embed
-                        )
-                    else:
-                        self.message = await interaction.response.send_message(
-                            content=self.content, embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
+    async def response_send(self, interaction: discord.Interaction) -> discord.Message:
+        message = await interaction.response.send_message(**self.args_interaction_send)
         if self.emojis is not None:
             for emoji in self.emojis:
-                await self.message.add_reaction(emoji)
-        return self
+                await message.add_reaction(emoji=emoji)
+        return message
 
-    async def edit(self, message: discord.Message, index: enum.IntEnum) -> "IWindow":
-        self._prepare_message()
-        if self.content is None:
-            if self._embed is None:
-                if self._embeds is None:
-                    raise ValueError
-                else:
-                    if self._view is None:
-                        self.message = await message.edit(embeds=self._embeds)
-                    else:
-                        self.message = await message.edit(
-                            embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await message.edit(embed=self._embed)
-                    else:
-                        self.message = await message.edit(
-                            embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
-        else:
-            if self._embed is None:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await message.edit(content=self.content)
-                    else:
-                        self.message = await message.edit(
-                            content=self.content, view=self._view
-                        )
-                else:
-                    if self._view is None:
-                        self.message = await message.edit(
-                            content=self.content, embeds=self._embeds
-                        )
-                    else:
-                        self.message = await message.edit(
-                            content=self.content, embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await message.edit(
-                            content=self.content, embed=self._embed
-                        )
-                    else:
-                        self.message = await message.edit(
-                            content=self.content, embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
+    async def edit(self, message: discord.Message) -> discord.Message:
+        message: discord.Message = await message.edit(**self.args_messageable_edit)
         if self.emojis is not None:
             for emoji in self.emojis:
-                await self.message.add_reaction(emoji)
-        return self
+                await message.add_reaction(emoji=emoji)
+        return message
 
-    async def response_edit(
-        self, interaction: discord.Interaction, index: enum.IntEnum
-    ) -> "IWindow":
-        self._prepare_message()
-        if self.content is None:
-            if self._embed is None:
-                if self._embeds is None:
-                    raise ValueError
-                else:
-                    if self._view is None:
-                        self.message = await interaction.response.edit_message(
-                            embeds=self._embeds
-                        )
-                    else:
-                        self.message = await interaction.response.edit_message(
-                            embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await interaction.response.edit_message(
-                            embed=self._embed
-                        )
-                    else:
-                        self.message = await interaction.response.edit_message(
-                            embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
-        else:
-            if self._embed is None:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await interaction.response.edit_message(
-                            content=self.content
-                        )
-                    else:
-                        self.message = await interaction.response.edit_message(
-                            content=self.content, view=self._view
-                        )
-                else:
-                    if self._view is None:
-                        self.message = await interaction.response.edit_message(
-                            content=self.content, embeds=self._embeds
-                        )
-                    else:
-                        self.message = await interaction.response.edit_message(
-                            content=self.content, embeds=self._embeds, view=self._view
-                        )
-            else:
-                if self._embeds is None:
-                    if self._view is None:
-                        self.message = await interaction.response.edit_message(
-                            content=self.content, embed=self._embed
-                        )
-                    else:
-                        self.message = await interaction.response.edit_message(
-                            content=self.content, embed=self._embed, view=self._view
-                        )
-                else:
-                    raise ValueError
+    async def response_edit(self, interaction: discord.Interaction) -> discord.Message:
+        message: discord.Message = await interaction.response.edit_message(
+            **self.args_messageable_send
+        )
         if self.emojis is not None:
             for emoji in self.emojis:
-                await self.message.add_reaction(emoji)
-        return self
+                await message.add_reaction(emoji=emoji)
+        return message
 
 
-class Windows(IWindow):
-    def __init__(self, windows: tuple[IWindow, ...]):
-        self.windows = windows
-        self.index: Optional[enum.IntEnum] = None
+class Windows:
+    def __init__(self, defaultWindow) -> None:
+        self.defautlWindow = defaultWindow
+        self.message: discord.Message = None
 
-    def destroy(self):
-        self.windows[self.index].desctroy()
+    async def run(self, interaction: discord.Interaction):
+        self.message = await self.defautlWindow.response_send(interaction=interaction)
 
-    def check_index(self, index: enum.IntEnum):
-        if index < 0 or len(self.windows) <= index:
-            raise IndexError
+    async def destroy(self):
+        if self.message is not None:
+            await self.message.destroy()
 
-    def get_embed_dict(self, index: enum.IntEnum) -> Optional[dict]:
-        self.check_index(index=index)
-        return self.windows[index].get_embed_dict(index=0)
 
-    def get_embeds_dicts(self, index: enum.IntEnum) -> Optional[list]:
-        self.check_index(index=index)
-        return self.windows[index].get_embeds_dicts(index=0)
-
-    def get_view_items(self, index: enum.IntEnum) -> Optional[dict]:
-        self.check_index(index=index)
-        return self.windows[index].get_view_items(index=0)
-
-    async def send(
-        self, sender: discord.abc.Messageable, index: enum.IntEnum
-    ) -> "IWindow":
-        win = await self.windows[index].send(sender=sender, index=0)
-        if isinstance(win, Window):
-            self.index = index
-            return self
-        elif isinstance(win, Windows):
-            self.windows[self.index].destroy()
-            self.index = index
-            return win
-        else:
-            raise TypeError
-
-    async def reply(self, message: discord.Message, index: enum.IntEnum) -> "IWindow":
-        win = await self.windows[index].reply(message=message, index=0)
-        if isinstance(win, Window):
-            return self
-        elif isinstance(win, Windows):
-            self.windows[self.index].destroy()
-            self.index = index
-            return win
-        else:
-            raise TypeError
-
-    async def response_send(
-        self, interaction: discord.Interaction, index: enum.IntEnum
-    ) -> "IWindow":
-        self.index = index
-        win = await self.windows[index].response_send(interaction=interaction, index=0)
-        if isinstance(win, Window):
-            return self
-        elif isinstance(win, Windows):
-            self.windows[self.index].destroy()
-            self.index = index
-            return win
-        else:
-            raise TypeError
-
-    async def edit(self, message: discord.Message, index: enum.IntEnum) -> "IWindow":
-        self.index = index
-        win = await self.windows[index].edit(message=message, index=0)
-        if isinstance(win, Window):
-            return self
-        elif isinstance(win, Windows):
-            return win
-        else:
-            raise TypeError
-
-    async def response_edit(
-        self, interaction: discord.Interaction, index: enum.IntEnum
-    ) -> "IWindow":
-        self.index = index
-        win = await self.windows[index].response_edit(interaction=interaction, index=0)
-        if isinstance(win, Window):
-            return self
-        elif isinstance(win, Windows):
-            return win
-        else:
-            raise TypeError
+class Pages(Windows):
+    def __init__(self, windows: list[Callable[[], Window]]) -> None:
+        if len(windows) <= 0:
+            raise ValueError
+        super().__init__(defaultWindow=windows[0]())
 
 
 class IRunner(metaclass=abc.ABCMeta):
@@ -547,7 +268,7 @@ class IRunner(metaclass=abc.ABCMeta):
 
 
 class Runner(IRunner):
-    def __init__(self, channel: discord.TextChannel, timeout: float = 3.0):
+    def __init__(self, channel: discord.TextChannel, timeout: float = None):
         self.channel = channel
         self.timeout = timeout
 

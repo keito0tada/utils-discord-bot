@@ -1,35 +1,24 @@
 import abc
-import enum
 import zoneinfo
-from typing import Optional, List, Union, NamedTuple, Sequence, Callable, Any
+from typing import Optional, Union, Sequence, Any
 
 import discord
 from discord.ext import commands, tasks
-from discord.interactions import Interaction
 
 from . import commandparser
 
 ZONE_TOKYO = zoneinfo.ZoneInfo("Asia/Tokyo")
 
+
 class UnSetType:
     pass
 
+
 UnSet = UnSetType()
+
 
 class DuplicatedSendError(Exception):
     pass
-
-
-class Popups:
-    def __init__(self, modal_patterns: List[Optional[discord.ui.Modal]]):
-        self.modal_patterns = modal_patterns
-        self.modal = modal_patterns[0]
-
-    def set_pattern(self, index: int):
-        self.modal = self.modal_patterns[index]
-
-    async def response_send(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(self.modal)
 
 
 class IWindow(metaclass=abc.ABCMeta):
@@ -57,26 +46,28 @@ class IWindow(metaclass=abc.ABCMeta):
 class Window(IWindow):
     def __init__(
         self,
-        content: str = None,
+        content: Optional[str] = None,
         tts: bool = False,
-        embed: discord.Embed = None,
-        embeds: list[discord.Embed] = None,
-        file: discord.File = None,
-        files: list[discord.File] = None,
-        stickers: Sequence[Union[discord.GuildSticker, discord.StickerItem]] = None,
-        delete_after: float = None,
-        nonce: int = None,
-        allowed_mentions: discord.AllowedMentions = None,
-        reference: Union[
-            discord.Message, discord.MessageReference, discord.PartialMessage
+        embed: Optional[discord.Embed] = None,
+        embeds: Optional[list[discord.Embed]] = None,
+        file: Optional[discord.File] = None,
+        files: Optional[list[discord.File]] = None,
+        stickers: Optional[
+            Sequence[Union[discord.GuildSticker, discord.StickerItem]]
         ] = None,
-        mention_author: bool = None,
-        view: discord.ui.View = None,
+        delete_after: Optional[float] = None,
+        nonce: Optional[int] = None,
+        allowed_mentions: Optional[discord.AllowedMentions] = None,
+        reference: Union[
+            discord.Message, discord.MessageReference, discord.PartialMessage, None
+        ] = None,
+        mention_author: Optional[bool] = None,
+        view: Optional[discord.ui.View] = None,
         suppress_embeds: bool = False,
         silent: bool = False,
         ephemeral: bool = False,
-        emojis: list[
-            Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str]
+        emojis: Optional[
+            list[Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str]]
         ] = None,
     ) -> None:
         self.content = content
@@ -96,21 +87,21 @@ class Window(IWindow):
         self.silent = silent
         self.emojis = emojis
         self.ephemeral = ephemeral
-        self.args_messageable_send = {
+        self.args_messageable_send: dict[str, Any] = {
             "tts": tts,
             "suppress_embeds": suppress_embeds,
             "silent": silent,
         }
-        self.args_messageable_edit = {
+        self.args_messageable_edit: dict[str, Any] = {
             "suppress": suppress_embeds,
         }
-        self.args_interaction_send = {
+        self.args_interaction_send: dict[str, Any] = {
             "tts": tts,
             "ephemeral": ephemeral,
             "suppress_embeds": suppress_embeds,
             "silent": silent,
         }
-        self.args_interaction_edit = {}
+        self.args_interaction_edit: dict[str, Any] = {}
         if content is not None:
             self.args_messageable_send["content"] = content
             self.args_messageable_edit["content"] = content
@@ -162,26 +153,29 @@ class Window(IWindow):
 
     def copy(
         self,
-        content: str = UnSet,
-        tts: bool = UnSet,
-        embed: discord.Embed = UnSet,
-        embeds: list[discord.Embed] = UnSet,
-        file: discord.File = UnSet,
-        files: list[discord.File] = UnSet,
-        stickers: Sequence[Union[discord.GuildSticker, discord.StickerItem]] = UnSet,
-        delete_after: float = UnSet,
-        nonce: int = UnSet,
-        allowed_mentions: discord.AllowedMentions = UnSet,
-        reference: Union[
-            discord.Message, discord.MessageReference, discord.PartialMessage
+        content: Union[str, UnSetType] = UnSet,
+        tts: Union[bool, UnSetType] = UnSet,
+        embed: Union[discord.Embed, UnSetType] = UnSet,
+        embeds: Union[list[discord.Embed], UnSetType] = UnSet,
+        file: Union[discord.File, UnSetType] = UnSet,
+        files: Union[list[discord.File], UnSetType] = UnSet,
+        stickers: Union[
+            Sequence[Union[discord.GuildSticker, discord.StickerItem]], UnSetType
         ] = UnSet,
-        mention_author: bool = UnSet,
-        view: discord.ui.View = UnSet,
-        suppress_embeds: bool = UnSet,
-        silent: bool = UnSet,
-        ephemeral: bool = UnSet,
-        emojis: list[
-            Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str]
+        delete_after: Union[float, UnSetType] = UnSet,
+        nonce: Union[int, UnSetType] = UnSet,
+        allowed_mentions: Union[discord.AllowedMentions, UnSetType] = UnSet,
+        reference: Union[
+            discord.Message, discord.MessageReference, discord.PartialMessage, UnSetType
+        ] = UnSet,
+        mention_author: Union[bool, UnSetType] = UnSet,
+        view: Union[discord.ui.View, UnSetType] = UnSet,
+        suppress_embeds: Union[bool, UnSetType] = UnSet,
+        silent: Union[bool, UnSetType] = UnSet,
+        ephemeral: Union[bool, UnSetType] = UnSet,
+        emojis: Union[
+            list[Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str]],
+            UnSetType,
         ] = UnSet,
     ) -> "Window":
         return Window(
@@ -194,14 +188,20 @@ class Window(IWindow):
             stickers=self.stickers if stickers is UnSet else stickers,
             delete_after=self.delete_after if delete_after is UnSet else delete_after,
             nonce=self.nonce if nonce is UnSet else nonce,
-            allowed_mentions=self.allowed_mentions if allowed_mentions is UnSet else allowed_mentions,
+            allowed_mentions=self.allowed_mentions
+            if allowed_mentions is UnSet
+            else allowed_mentions,
             reference=self.reference if reference is UnSet else reference,
-            mention_author=self.mention_author if mention_author is UnSet else mention_author,
+            mention_author=self.mention_author
+            if mention_author is UnSet
+            else mention_author,
             view=self.view if view is UnSet else view,
-            suppress_embeds=self.suppress_embeds if suppress_embeds is UnSet else suppress_embeds,
+            suppress_embeds=self.suppress_embeds
+            if suppress_embeds is UnSet
+            else suppress_embeds,
             silent=self.silent if silent is UnSet else silent,
             ephemeral=self.ephemeral if ephemeral is UnSet else ephemeral,
-            emojis=self.emojis if emojis is UnSet else emojis
+            emojis=self.emojis if emojis is UnSet else emojis,
         )
 
     async def send(self, sender: discord.abc.Messageable) -> discord.Message:
@@ -212,11 +212,11 @@ class Window(IWindow):
         return message
 
     async def reply(self, message: discord.Message) -> discord.Message:
-        message: discord.Message = await message.reply(**self.args_messageable_send)
+        new_message: discord.Message = await message.reply(**self.args_messageable_send)
         if self.emojis is not None:
             for emoji in self.emojis:
-                await message.add_reaction(emoji=emoji)
-        return message
+                await new_message.add_reaction(emoji=emoji)
+        return new_message
 
     async def response_send(self, interaction: discord.Interaction) -> discord.Message:
         message = await interaction.response.send_message(**self.args_interaction_send)
@@ -256,33 +256,44 @@ class Windows:
 
 
 class Pages(Windows):
-    class PageNumberModal(discord.ui.Modal, title='ページ番号'):
-        page_input = discord.ui.TextInput(label='ページ番号')
-        def __init__(self, pages: 'Pages'):
+    class PageNumberModal(discord.ui.Modal, title="ページ番号"):
+        page_input = discord.ui.TextInput(label="ページ番号")
+
+        def __init__(self, pages: "Pages"):
             super().__init__()
-            self.pages = pages 
-        async def on_submit(self, interaction: discord.Interaction) -> None:
-            await self.pages.move_on_page_number(page_number=int(self.page_input.value), interaction=interaction)
-    class NextButton(discord.ui.Button):
-        def __init__(self, pages: 'Pages', disabled: bool = False):
-            super().__init__(label='>>', disabled=disabled)
             self.pages = pages
+
+        async def on_submit(self, interaction: discord.Interaction) -> None:
+            await self.pages.move_on_page_number(
+                page_number=int(self.page_input.value), interaction=interaction
+            )
+
+    class NextButton(discord.ui.Button):
+        def __init__(self, pages: "Pages", disabled: bool = False):
+            super().__init__(label=">>", disabled=disabled)
+            self.pages = pages
+
         async def callback(self, interaction: discord.Interaction) -> None:
             await self.pages.move_to_side(next=True, interaction=interaction)
+
     class PrevButton(discord.ui.Button):
-        def __init__(self, pages: 'Pages', disabled: bool = False):
-            super().__init__(label='<<', disabled=disabled)
+        def __init__(self, pages: "Pages", disabled: bool = False):
+            super().__init__(label="<<", disabled=disabled)
             self.pages = pages
+
         async def callback(self, interaction: discord.Interaction) -> None:
             await self.pages.move_to_side(next=False, interaction=interaction)
-    class PageButton(discord.ui.Button):
-        def __init__(self, pages: 'Pages', index: int):
-            super().__init__(label='{0}/{1}'.format(index, pages.length()))
-            self.pages = pages
-        async def callback(self, interaction: discord.Interaction) -> None:
-            await interaction.response.send_modal(Pages.PageNumberModal(pages=self.pages))
 
-            
+    class PageButton(discord.ui.Button):
+        def __init__(self, pages: "Pages", index: int):
+            super().__init__(label="{0}/{1}".format(index, pages.length()))
+            self.pages = pages
+
+        async def callback(self, interaction: discord.Interaction) -> None:
+            await interaction.response.send_modal(
+                Pages.PageNumberModal(pages=self.pages)
+            )
+
     def __init__(self, windows: list[Window], defaultIndex: int = 0) -> None:
         if len(windows) <= 0:
             raise ValueError
@@ -296,13 +307,17 @@ class Pages(Windows):
                 raise ValueError
             window.view.add_item(Pages.PrevButton(pages=self, disabled=index <= 0))
             window.view.add_item(Pages.PageButton(pages=self, index=index + 1))
-            window.view.add_item(Pages.NextButton(pages=self, disabled=self.length() - 1 <= index))
+            window.view.add_item(
+                Pages.NextButton(pages=self, disabled=self.length() - 1 <= index)
+            )
         super().__init__(defaultWindow=windows[defaultIndex])
 
     def length(self):
         return len(self.windows)
 
-    async def move_on_page_number(self, page_number: int, interaction: discord.Interaction):
+    async def move_on_page_number(
+        self, page_number: int, interaction: discord.Interaction
+    ):
         page_number -= 1
         if page_number < 0 or self.length() <= page_number:
             raise IndexError
@@ -312,13 +327,17 @@ class Pages(Windows):
     async def move_to_side(self, next: bool, interaction: discord.Interaction):
         if next:
             if self.index + 1 < self.length():
-                await self.windows[self.index + 1].response_edit(interaction=interaction)
+                await self.windows[self.index + 1].response_edit(
+                    interaction=interaction
+                )
                 self.index += 1
             else:
                 raise IndexError
         else:
             if 0 <= self.index - 1:
-                await self.windows[self.index - 1].response_edit(interaction=interaction) 
+                await self.windows[self.index - 1].response_edit(
+                    interaction=interaction
+                )
                 self.index -= 1
             else:
                 raise IndexError
